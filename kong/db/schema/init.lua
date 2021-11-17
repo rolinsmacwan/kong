@@ -2,6 +2,7 @@ local tablex       = require "pl.tablex"
 local pretty       = require "pl.pretty"
 local utils        = require "kong.tools.utils"
 local cjson        = require "cjson"
+local clone        = require "table.clone"
 
 
 local setmetatable = setmetatable
@@ -1591,7 +1592,13 @@ end
 function Schema:process_auto_fields(data, context, nulls, opts)
   local check_immutable_fields = false
 
-  data = tablex.deepcopy(data)
+  local is_select = context == "select"
+  if is_select then
+    data = clone(data)
+
+  else
+    data = tablex.deepcopy(data)
+  end
 
   local shorthand_fields = self.shorthand_fields
   if shorthand_fields then
@@ -1641,8 +1648,6 @@ function Schema:process_auto_fields(data, context, nulls, opts)
 
   local now_s
   local now_ms
-
-  local is_select = context == "select"
 
   for key, field in self:each_field(data) do
     if field.legacy and field.uuid and data[key] == "" then
