@@ -642,7 +642,8 @@ do
   local function build_services_init_cache(db)
     local services_init_cache = {}
 
-    for service, err in db.services:each(nil, GLOBAL_QUERY_OPTS) do
+    local page_size = db.services.pagination.max_page_size
+    for service, err in db.services:each(page_size, GLOBAL_QUERY_OPTS) do
       if err then
         return nil, err
       end
