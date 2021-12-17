@@ -2,6 +2,7 @@ local policy_cluster = require "kong.plugins.rate-limiting.policies.cluster"
 local timestamp = require "kong.tools.timestamp"
 local reports = require "kong.reports"
 local redis = require "resty.redis"
+local utils = require "kong.tools.utils"
 
 
 local kong = kong
@@ -70,6 +71,7 @@ local function get_redis_connection(conf)
     kong.log.err("failed to connect to Redis: ", err)
     return nil, err
   end
+  utils.check_redis_support(red)
 
   local times, err = red:get_reused_times()
   if err then

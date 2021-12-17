@@ -15,6 +15,8 @@ local pl_stringio = require "pl.stringio"
 local pl_utils = require "pl.utils"
 local pl_path = require "pl.path"
 local zlib = require "ffi-zlib"
+local constants = require "kong.constants"
+local version = require "version"
 
 local C             = ffi.C
 local ffi_fill      = ffi.fill
@@ -1445,5 +1447,25 @@ do
   end
 end
 
+local function check_redis_support(red)
+  local red_version, err = version(string.match(red:info(), 'redis_version:([%g]+)\r\n'))
+  local min_red_version = version(constants.DATABASE.REDIS.MIN)
+
+  if err then
+    -- This should never happen; see https://redis.io/commands/info for more details
+    local message = "Unable to retrieve Redis version: '" .. err .. "'"
+    ngx.log(ngx.WARN, message)
+    return nil, message
+  elseif red_version < min_red_version then
+    local message = "Redis v" .. tostring(red_version) ..
+      " is end of life and will not be supported; upgrade to v" ..
+      tostring(min_red_version) .. "+ is recommended"
+    ngx.log(ngx.WARN, message)
+    return red_version, message
+  end
+
+  return red_version, nil
+end
+_M.check_redis_support = check_redis_support
 
 return _M

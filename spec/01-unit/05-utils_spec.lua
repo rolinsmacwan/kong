@@ -1,5 +1,7 @@
 local utils = require "kong.tools.utils"
 local pl_path = require "pl.path"
+local constants = require "kong.constants"
+local version = require "version"
 
 describe("Utils", function()
 
@@ -848,6 +850,41 @@ describe("Utils", function()
       local x, err = ts({ a, b }, get_neighbors)
       assert.is_nil(x)
       assert.equals("Cycle detected, cannot sort topologically", err)
+    end)
+  end)
+
+  describe("check_redis_support", function()
+    it("Redis version is supported", function()
+      local red = {
+        info = function()
+          return "# Server\r\nredis_version:" .. constants.DATABASE.REDIS.MIN .. "\r\nredis_git_sha1:00000000\r\nredis_git_dirty:0\r\nredis_build_id:886a3704a27a29db\r\n"
+        end
+      }
+      local red_version, err = utils.check_redis_support(red)
+      assert.equals(version(constants.DATABASE.REDIS.MIN), red_version)
+      assert.is_nil(err)
+    end)
+
+    it("Redis version is not supported", function()
+      local red = {
+        info = function()
+          return "# Server\r\nredis_version:4.0.14\r\nredis_git_sha1:00000000\r\nredis_git_dirty:0\r\nredis_build_id:886a3704a27a29db\r\n"
+        end
+      }
+      local red_version, err = utils.check_redis_support(red)
+      assert.equals(version("4.0.14"), red_version)
+      assert.truthy(err:find("Redis v4.0.14 is end of life and will not be supported", 1, true) == 1)
+    end)
+
+    it("Redis version is invalid; should never happen and indicated as not supported", function()
+      local red = {
+        info = function()
+          return "# Server\r\nredis_version:invalid_version\r\nredis_git_sha1:00000000\r\nredis_git_dirty:0\r\nredis_build_id:886a3704a27a29db\r\n"
+        end
+      }
+      local red_version, err = utils.check_redis_support(red)
+      assert.is_nil(red_version)
+      assert.truthy(err:find("Unable to retrieve Redis version", 1, true) == 1)
     end)
   end)
 end)

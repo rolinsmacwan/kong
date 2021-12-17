@@ -159,6 +159,9 @@ local constants = {
     CASSANDRA = {
       MIN = "3.0",
       DEPRECATED = "2.2",
+    },
+    REDIS = {
+      MIN = "5.0"
     }
   },
   PROTOCOLS = protocols,
