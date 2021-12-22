@@ -186,7 +186,7 @@ local function send_ping(c, log_suffix)
 
   local hash = declarative.get_current_hash()
 
-  if hash == true then
+  if hash == "true" then
     hash = string.rep("0", 32)
   end
 

@@ -7,6 +7,7 @@ local cjson = require "cjson.safe"
 local tablex = require "pl.tablex"
 local constants = require "kong.constants"
 local txn = require("resty.lmdb.transaction")
+local lmdb = require("resty.lmdb")
 
 
 local deepcopy = tablex.deepcopy
@@ -536,7 +537,7 @@ end
 
 
 function declarative.get_current_hash()
-  return ngx.shared.kong:get(DECLARATIVE_HASH_KEY)
+  return lmdb.get(DECLARATIVE_HASH_KEY)
 end
 
 
@@ -815,11 +816,7 @@ function declarative.load_into_cache(entities, meta, hash)
 
   t:set("tags||@list", tags)
 
-  hash = hash or true
-  hash, err = marshall(hash)
-  if not hash then
-    return nil, err
-  end
+  hash = hash or "true"
   t:set(DECLARATIVE_HASH_KEY, hash)
 
   kong.default_workspace = default_workspace
