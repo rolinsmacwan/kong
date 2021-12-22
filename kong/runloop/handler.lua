@@ -362,9 +362,6 @@ local function register_events()
       end
 
       local ok, err = concurrency.with_coroutine_mutex(FLIP_CONFIG_OPTS, function()
-        kong.core_cache:purge()
-        kong.cache:purge()
-
         balancer.stop_healthcheckers()
 
         kong.default_workspace = default_ws
