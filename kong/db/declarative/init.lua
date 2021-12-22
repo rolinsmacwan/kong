@@ -6,7 +6,6 @@ local lyaml = require "lyaml"
 local cjson = require "cjson.safe"
 local tablex = require "pl.tablex"
 local constants = require "kong.constants"
-local lmdb = require("resty.lmdb")
 local txn = require("resty.lmdb.transaction")
 
 
@@ -16,12 +15,10 @@ local md5 = ngx.md5
 local pairs = pairs
 local ngx_socket_tcp = ngx.socket.tcp
 local yield = require("kong.tools.utils").yield
-local lmdb_set = lmdb.set
 local marshall = require("kong.db.declarative.marshaller").marshall
 local REMOVE_FIRST_LINE_PATTERN = "^[^\n]+\n(.+)$"
 local PREFIX = ngx.config.prefix()
 local SUBSYS = ngx.config.subsystem
-local WORKER_COUNT = ngx.worker.count()
 local DECLARATIVE_HASH_KEY = constants.DECLARATIVE_HASH_KEY
 
 
@@ -584,10 +581,6 @@ function declarative.load_into_cache(entities, meta, hash)
   local tags_by_name = {}
 
   local t = txn.begin(128)
-  t:db_open(true)
-  assert(t:commit())
-
-  t:reset()
   t:db_drop(false)
 
   local transform = meta._transform == nil and true or meta._transform
@@ -747,7 +740,7 @@ function declarative.load_into_cache(entities, meta, hash)
     for ws_id, keys in pairs(keys_by_ws) do
       local entity_prefix = entity_name .. "|" .. (schema.workspaceable and ws_id or "")
 
-      keys, err = marshall(keys)
+      local keys, err = marshall(keys)
       if not keys then
         return nil, err
       end
@@ -760,7 +753,7 @@ function declarative.load_into_cache(entities, meta, hash)
           for fid, entries in pairs(fids) do
             local key = entity_prefix .. "|" .. ref .. "|" .. fid .. "|@list"
 
-            entries, err = marshall(entries)
+            local entries, err = marshall(entries)
             if not entries then
               return nil, err
             end
@@ -786,7 +779,7 @@ function declarative.load_into_cache(entities, meta, hash)
         -- stay consistent with pagination
         table.sort(arr)
 
-        arr, err = marshall(arr)
+        local arr, err = marshall(arr)
         if not arr then
           return nil, err
         end
@@ -802,12 +795,12 @@ function declarative.load_into_cache(entities, meta, hash)
     -- tags:admin|@list -> all tags tagged "admin", regardless of the entity type
     -- each tag is encoded as a string with the format "admin|services|uuid", where uuid is the service uuid
     local key = "tags:" .. tag_name .. "|@list"
-    tags, err = marshall(tags)
+    local tags, err = marshall(tags)
     if not tags then
       return nil, err
     end
 
-    local ok, err = l:set(key, tags)
+    local ok, err = t:set(key, tags)
     if not ok then
       return nil, err
     end
@@ -815,7 +808,7 @@ function declarative.load_into_cache(entities, meta, hash)
 
   -- tags||@list -> all tags, with no distinction of tag name or entity type.
   -- each tag is encoded as a string with the format "admin|services|uuid", where uuid is the service uuid
-  tags, err = marshall(tags)
+  local tags, err = marshall(tags)
   if not tags then
     return nil, err
   end
@@ -824,11 +817,14 @@ function declarative.load_into_cache(entities, meta, hash)
 
   hash = hash or true
   hash, err = marshall(hash)
+  if not hash then
+    return nil, err
+  end
   t:set(DECLARATIVE_HASH_KEY, hash)
 
   kong.default_workspace = default_workspace
 
-  ok, err = t:commit()
+  local ok, err = t:commit()
   if not ok then
     return nil, err
   end
@@ -838,16 +834,12 @@ end
 
 
 do
-  local DECLARATIVE_PAGE_KEY = constants.DECLARATIVE_PAGE_KEY
-
   function declarative.load_into_cache_with_events(entities, meta, hash)
     if ngx.worker.exiting() then
       return nil, "exiting"
     end
 
-    local default_ws
-
-    ok, err, default_ws = declarative.load_into_cache(entities, meta, hash)
+    local ok, err, default_ws = declarative.load_into_cache(entities, meta, hash)
     if ok then
       ok, err = kong.worker_events.post("declarative", "reconfigure", default_ws)
       if ok ~= "done" then
