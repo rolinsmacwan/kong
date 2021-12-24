@@ -816,7 +816,7 @@ function declarative.load_into_cache(entities, meta, hash)
 
   t:set("tags||@list", tags)
 
-  hash = hash or "true"
+  hash = hash or string.rep("0", 32)
   t:set(DECLARATIVE_HASH_KEY, hash)
 
   kong.default_workspace = default_workspace
@@ -845,6 +845,9 @@ do
       if ok ~= "done" then
         return nil, "failed to broadcast reconfigure event: " .. (err or ok)
       end
+
+    elseif err:find("MDB_MAP_FULL", nil, true) then
+      return nil, "map full"
 
     else
       return nil, err
