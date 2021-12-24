@@ -372,6 +372,10 @@ local function register_events()
 
         balancer.init()
 
+        -- this over purges, but should at least be safe
+        kong.core_cache:purge()
+        kong.cache:purge()
+
         return true
       end)
 
